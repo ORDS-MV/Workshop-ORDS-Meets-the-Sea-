@@ -17,8 +17,7 @@ execute:
 -   Show how to make maps of raster data -\> `terra` package.
 -   Show how to make maps of vector data -\> `sf` package.
 -   Introduce some basics of GIS shapefiles.
--   Show how to convert those shapefiles into data frames that `ggplot2` can deal with
--   Introduce spatial geometries (`geom_`) of `ggplot2` and `tidyterra`.
+-   Show how to convert those shapefiles into data frames that `ggplot2` and `tidyterra` can deal with
 
 # Basic libraries
 
@@ -33,7 +32,7 @@ library(readxl)     # read Excel files
 The `rnaturalearth` package facilitates interaction with natural earth vector map data. The package contains pre-downloaded vector maps of countries: `ne_countries()`, states: `ne_states()`, coastline: `ne_coastline()`. It also has `ne_download()` function to facilitate download of other vector and raster maps.
 
 ```{r, libs-nat.earth}
-library(rnaturalearth)      # natural earth data
+library(rnaturalearth)       # natural earth data
 #library(rnaturalearthhires) # high resolution natural earth data
 ```
 
@@ -45,27 +44,29 @@ The function `ne_countries()` reads the data in as a regular dataframe, with the
 
 ```{r, data-nat.earth}
 # default. returnclass = "sf"
-world <- ne_countries(scale = "small") 
-europe <- ne_countries(scale = "medium", continent = "Europe")
+world  <- rnaturalearth::ne_countries(scale = "small") 
+europe <- rnaturalearth::ne_countries(scale = "medium", 
+                       continent = "Europe")
 ```
 
 ## Make Natural Earth maps
 
-Create maps with `geom_sf()` in a ggplot:
+Create maps with `geom_sf()` from the `ggplot2` R package, *i.e.* as a ggplot.
 
 ```{r, plot1-nat.earth}
 ggplot() +
   geom_sf(data = world)
 ```
 
-Use the `world` data to plot Europe by defining a geographic range using `coord_sf`:
+Use the `world` data to plot Europe by defining a geographic range using `coord_sf`.
 
 ```{r, plot2-nat.earth}
 ggplot() +
   geom_sf(data = world) +
-  coord_sf(xlim = c(-20, 50), ylim = c(33, 80)) +
-  labs(x = "Longitude",
-       y = "Latitude",
+  coord_sf(xlim = c(-20, 50), 
+           ylim = c(33, 80)) +
+  labs(x     = "Longitude",
+       y     = "Latitude",
        title = "Europe")
 ```
 
@@ -78,9 +79,31 @@ ggplot() +
 
 For 3) and 4) look at the columns of the data frame.
 
+**Solution of Task 1 (unfold):**
+
+```{r, plot3-nat.earth}
+#| code-fold: true
+ggplot() +
+  geom_sf(data = europe, 
+          aes(fill = admin)) +
+  coord_sf(xlim = c(10, 30), 
+           ylim = c(53, 66)) +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(x     = "Longitude",
+       y     = "Latitude",
+       title = "Baltic Sea") +
+  guides(fill = "none") +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill   = "lightblue", 
+                                        colour = NaN),
+        panel.grid.major = element_line(colour = NaN))
+```
+
 # Add Baltic Sea raster data to the map (1/4)
 
-You can download data from the Copernicus Marine Data Store here: https://data.marine.copernicus.eu/products?facets=areas%7EBaltic+Sea
+You can download data from the Copernicus Marine Data Store here: https://data.marine.copernicus.eu/products?facets=areas%7EBaltic+Sea.
+
+Save the data in a folder of your choice, I name it `data/copernicus`.
 
 The data sets are in the NetCDF data format. Instead of using the functionality of the `RNetCDF` R package to read in NetCDF data (`open.nc()`, `var.get.nc()`), we can use the much more convenient `rast()` from the `terra` package.
 
@@ -97,7 +120,7 @@ When reading the NetCDF data with `terra::rast()`, a SpatRaster object is create
 copernicus <- rast("./data/copernicus/cmems_mod_bal_phy_anfc_P1M-m_1728829730861.nc")
 ```
 
-Check dimensions (only one depth and only one time step):
+Check dimensions (only one depth and only one time step). If not, then process the data, *i.e.* select one depth and one time step.
 
 ```{r, str-copernicus}
 class(copernicus)
@@ -106,18 +129,20 @@ print(copernicus)
 
 ## Make a first plot
 
-As the `terra` package is loaded, we can use the `plot()` function to plot the values of the SpatRaster to make a map.
+As the `terra` package is loaded, we can use the `plot()` function to plot the values of the **SpatRaster** to make a map.
 
 ```{r, plot1-copernicus}
-plot(copernicus)
+terra::plot(copernicus)
 ```
+
+Now we draw a map using `ggplot()` and the `geom_spatraster()` from the `tidyterra` R package.
 
 ```{r, plot2-copernicus}
 ggplot() +
   geom_spatraster(data = copernicus) +
   scale_fill_viridis() +
-  labs(x = "Longitude",
-       y = "Latitude",
+  labs(x     = "Longitude",
+       y     = "Latitude",
        title = "Baltic Sea") +
   guides(fill = "none") +
   theme_minimal()
@@ -125,7 +150,7 @@ ggplot() +
 
 ## Add the Copernicus data to the Baltic Sea map
 
-To combine the vector data from Natural Earth with the raster data, we need to ensure that both the raster and vector data are in the same Coordinate Reference System (CRS). Use `crs()` function in `terra` to check and reproject if necessary or `st_crs()` from the `sf`package.
+To combine the vector data from Natural Earth with the raster data, we need to ensure that both the raster and vector data are in the same **Coordinate Reference System (CRS)**. Use `crs()` function in `terra` to check and reproject if necessary or `st_crs()` from the `sf` package.
 
 ```{r, libs-sf}
 library(sf)
@@ -144,7 +169,7 @@ st_crs(copernicus)==st_crs(europe)
 
 The `europe` data is a regular dataframe, with the spatial component of the data contained inside a geometry list-column within the dataframe.
 
-We could use this, but... we create a SpatVector object:
+We could use this, but this time we create a **SpatVector** object with the `vect()` function from the `terra` package.
 
 ```{r, class-europe}
 class(europe)
@@ -155,13 +180,31 @@ class(europe)
 
 **TASK 2:**
 
-1.  Plot the `copernicus` raster data as a base map using `tidyterra::geom_spatraster()`.
-2.  Add the `europe` vector data as a second layer (see Task 1). you can also use `tidyterra::geom_spatvector()`
+1.  Plot the `copernicus` raster data as a base map using `geom_spatraster()`.
+2.  Add the `europe` vector data as a second layer (see Task 1). you can also use `geom_spatvector()`
 3.  Look at the map if you don't use `coord_sf()` to define the geographic range.
+
+**Solution of Task 2 (unfold):**
+
+```{r, plot1-terra}
+#| code-fold: true
+ggplot() +
+  geom_spatraster(data = copernicus) +
+  geom_spatvector(data = europe) +
+  coord_sf(xlim = c(10, 30), ylim = c(53, 66)) +
+  scale_fill_viridis() +
+  labs(x     = "Longitude",
+       y     = "Latitude",
+       title = "Baltic Sea") +
+  guides(fill = "none") +
+  theme_minimal()
+```
 
 # Add Baltic Sea raster data to the vector data (2/4)
 
-You can download bathymetry data processed at IOW here: https://www.io-warnemuende.de/topography-of-the-baltic-sea.html
+You can download bathymetry data processed at IOW here: https://www.io-warnemuende.de/topography-of-the-baltic-sea.html.
+
+Save the data in a folder of your choice, I name it `data/iow`.
 
 The data sets are in the NetCDF data format. Instead of using the functionality of the `RNetCDF` R package to read in NetCDF data (`open.nc()`, `var.get.nc()`), we can use the much more convenient `rast()` from the `terra` package.
 
@@ -177,13 +220,17 @@ library(tidyterra)  # ggplot of terra raster data
 iowtopo <- rast("./data/iow/iowtopo_nc/iowtopo2_rev03.nc")
 # Southwestern part of Baltic Sea
 # iowtopo <- rast("./data/iow/iowtopo_nc/iowtopo1_rev02.nc")
+```
 
+Look at the structure of the data.
+
+```{r, str-iowtopo}
 class(iowtopo)
 iowtopo
 res(iowtopo)
 ```
 
-Use the `plot()` function to have an overview of the data contained in this raster object:
+Use the `plot()` function to have an overview of the data contained in this raster object.
 
 ```{r, plot1-iowtopo}
 plot(iowtopo)
@@ -191,14 +238,14 @@ plot(iowtopo$Z_TOPO)
 plot(iowtopo$LANDMASK)
 ```
 
-Data processing and summary statistics, here only two very simple examples:
+You could do some data processing and get summary statistics, here only two very simple examples.
 
 ```{r, data2-iowtopo}
 global(iowtopo$Z_TOPO, mean)
 freq(iowtopo$Z_TOPO, value = 10)
 ```
 
-Data processing:
+Here we process the data to only keep the bathymetry of the Baltic Sea (negative values), *i.e.* cut off at zero. Positive values (land) are set to NaN. 
 
 ```{r, data3-iowtopo}
 # subst(x, from, to, others=NULL, raw=FALSE, filename="", ...)
@@ -268,33 +315,43 @@ ggplot() +
 
 ## Read csv ODIN data
 
-I manually changed separator from semicolon to comma and decimal from comma to point:
+Pay attention, the `ODIN.csv` file is comma separated but the column names are distributed over the first three rows. You can use this work around of first extracting the column names and than reading the data and skipping the first three rows.
+
+In addition, some meta data information is contained in the last 4 rows. Using `slice()` you cut these rows.
+
+Of course, you could make these adjustments manually before reading the data.
 
 ```{r, data1-odin}
-odin <- read_csv("./data/iow/odin2__balticsea-ctd-oxygen-2023_comma.csv",
-                 skip = 2) %>% 
+col_names <- names(read_csv("./data/iow/odin2_2024-10-14_104811_comma.csv",
+                            n_max = 0))
+
+odin <- read_csv("./data/iow/odin2_2024-10-14_104811_comma.csv",
+                 col_names = col_names,
+                 skip = 3) %>% 
   dplyr::select(1, 2, 3, 4, 8, 11, 14, 15) %>% 
   slice(-c(922:925))
 
+# rename the columns
 colnames(odin) <- c("station", 
                     "year", "month", "day", 
                     "lon", "lat", 
                     "depth", "oxy")
 
+# create a column date
 odin <- odin %>% 
   mutate(date = paste0(year, month, day)) %>% 
   mutate(date = lubridate::ymd(date)) %>% 
   dplyr::select(-c(year, month, day))
 ```
 
-## Select data from May 2023
+Select data from one cruise, here May 2023.
 
 ```{r, data2-odin}
 odin.may <- odin %>% 
   filter(year(date) == 2023, month(date) == 5)
 ```
 
-## Select the lowest depth of each station
+Select the lowest depth (surface values) of each station.
 
 ```{r, data3-odin}
 odin.may.surf <- odin.may %>%
@@ -307,16 +364,21 @@ odin.may.surf <- odin.may %>%
 
 The data to be plotted on a map are in a data frame `odin.may.surf`.
 
-We need to convert the odin data frame to an sf object. **EPSG:4326** corresponds to the WGS 84 geographic coordinate system, which is based on latitude and longitude coordinates and widely used for mapping.
+We need to convert the data frame to a spatial `sf` object. **EPSG:4326** corresponds to the WGS 84 geographic coordinate system, which is based on latitude and longitude coordinates and widely used for mapping.
 
 ```{r, data4-odin}
-odin_sf <- st_as_sf(odin.may.surf, coords = c("lon", "lat"), crs = 4326)
+odin_sf <- st_as_sf(odin.may.surf, 
+                    coords = c("lon", "lat"), 
+                    crs = 4326)
 ```
+
+Now we draw a map using `ggplot()` and the `geom_spatraster()` from the `tidyterra` R package to plot the bathymetry of the Baltic Sea and `geom_sf()` to plot the ODIN point data.
 
 ```{r, plot1-odin}
 ggplot() +
   tidyterra::geom_spatraster(data = topo) +
-  coord_sf(xlim = c(10, 30), ylim = c(53, 66)) +
+  coord_sf(xlim = c(10, 30), 
+           ylim = c(53, 66)) +
   tidyterra::scale_fill_hypso_c(
     palette = "meyers_bathy",
     n.breaks = 12,
@@ -324,16 +386,17 @@ ggplot() +
     alpha = 1) +
   # Add station numbers to points
   geom_sf(data = odin_sf, 
-          aes(geometry = geometry, col = oxy),
+          aes(geometry = geometry, 
+              col      = oxy),
           size = 3) +
   scale_color_viridis()+
   # Add station numbers to points
   # geom_sf_text(data = odin_sf,
   #              aes(label = station),
   #              nudge_y = 0.3, size = 3) +
-  labs(x = "Longitude",
-       y = "Latitude",
-       col = "Oxygen concentration [ml/l]",
+  labs(x     = "Longitude",
+       y     = "Latitude",
+       col   = "Oxygen concentration [ml/l]",
        title = "Surface oxygen concentration the Baltic Sea",
        subtitle = "iowtopo2_rev03")
 ```
@@ -344,6 +407,56 @@ ggplot() +
 2.  Select the bottom values of each station.
 3.  Show only the central part of the Baltic Sea (where the station data are from) -\> define region `crop_extent <- ext(10, 22, 53, 59)` and then crop the `topo` raster with `cropped_topo <- crop(topo, crop_extent)`
 4.  Use maybe a diverging color scale for the points.
+
+**Solution of TASK 3 (unfold):**
+
+```{r, data5-odin}
+#| code-fold: true
+odin.august <- odin %>% 
+  filter(year(date) == 2023, 
+         month(date) == 8)
+
+odin.august.bottom <- odin.august %>%
+  group_by(station) %>%
+  slice_max(depth) %>% 
+  ungroup()
+
+odin_sf2 <- st_as_sf(odin.august.bottom, 
+                     coords = c("lon", "lat"), 
+                     crs = 4326)
+```
+
+```{r, data6-odin}
+#| code-fold: true
+# Define the extent (xmin, xmax, ymin, ymax)
+crop_extent <- ext(10, 22.3, 53, 59.3)
+# Crop the raster using the defined extent
+cropped_topo <- crop(topo, crop_extent)
+```
+
+```{r, plot2-odin}
+#| code-fold: true
+ggplot() +
+  tidyterra::geom_spatraster(data = cropped_topo) +
+  coord_sf(xlim = c(10, 22.3), 
+           ylim = c(53, 59.3)) +
+  tidyterra::scale_fill_hypso_c(
+    palette = "meyers_bathy",
+    n.breaks = 12,
+    guide = "none",
+    alpha = 1) +
+  # Add station numbers to points
+  geom_sf(data = odin_sf2, 
+          aes(geometry = geometry, 
+              col = oxy),
+          size = 3) +
+  scale_color_whitebox_c(palette = "muted")+
+  labs(x = "Longitude",
+       y = "Latitude",
+       col = "Oxygen concentration [ml/l]",
+       title = "Bottom oxygen concentration the Baltic Sea",
+       subtitle = "iowtopo2_rev03")
+```
 
 # Add ICES DATRAS trawl survey data to the Baltic Sea raster data (4/4)
 
@@ -394,7 +507,7 @@ head(codwgt)
 
 The data to be plotted on a map are in a data frame `codwgt`.
 
-We need to convert the `codwgt` data frame to an sf object. **EPSG:4326** corresponds to the WGS 84 geographic coordinate system, which is based on latitude and longitude coordinates and widely used for mapping.
+We need to convert the `codwgt` data frame to a spatial `sf` object. **EPSG:4326** corresponds to the WGS 84 geographic coordinate system, which is based on latitude and longitude coordinates and widely used for mapping.
 
 ```{r, data4-ices}
 codwgt_sf <- st_as_sf(codwgt, 
@@ -402,17 +515,13 @@ codwgt_sf <- st_as_sf(codwgt,
                       crs = 4326)
 ```
 
-```{r, data6-odin}
-# Define the extent (xmin, xmax, ymin, ymax)
-crop_extent <- ext(10, 22.3, 53, 59.3)
-# Crop the raster using the defined extent
-cropped_topo <- crop(topo, crop_extent)
-```
+Now we draw a map using `ggplot()` and the `geom_spatraster()` from the `tidyterra` R package to plot the topography and `geom_sf()` to plot the ODIN point data.
 
 ```{r, plot-ices}
 ggplot() +
   tidyterra::geom_spatraster(data = cropped_topo) +
-  coord_sf(xlim = c(10, 22.3), ylim = c(53, 59.3)) +
+  coord_sf(xlim = c(10, 22.3), 
+           ylim = c(53, 59.3)) +
   tidyterra::scale_fill_hypso_c(
     palette = "meyers_bathy",
     n.breaks = 12,
@@ -420,7 +529,8 @@ ggplot() +
     alpha = 1) +
   # Add station numbers to points
   geom_sf(data = codwgt_sf, 
-          aes(geometry = geometry, col = CatchWgt),
+          aes(geometry = geometry, 
+              col      = CatchWgt),
           size = 4, alpha = 0.5) +
   scale_color_viridis()+
   labs(x = "Longitude",
@@ -444,7 +554,7 @@ Shapefiles allow you to easily draw different polygons (i.e. countries, administ
 
 R-spatial evolution: retirement of `rgdal`, `rgeos` and `maptools`!! The functionality of these packages has been replaced by other, more modern packages like `sf` and `terra`.
 
-## sf package
+## `sf` package
 
 The `sf` package reads the shapefile in as a regular dataframe, with the spatial component of the data contained inside a geometry list-column within the dataframe. That means you can operate on this data as you would any data frame, because the geometry column will always stick with the data.
 
@@ -455,7 +565,9 @@ library(ggspatial) # add scale bars
 
 ## Read data
 
-This dataset shows the sub-drainage areas of the Baltic Sea catchment area. It can be downloaded from the HELCOM metadata catalogue: https://metadata.helcom.fi/geonetwork/srv/api/records/9e132cda-8f69-4f7a-9c66-8b9859e61441
+This dataset shows the sub-drainage areas of the Baltic Sea catchment area. It can be downloaded from the HELCOM metadata catalogue: https://metadata.helcom.fi/geonetwork/srv/api/records/9e132cda-8f69-4f7a-9c66-8b9859e61441.
+
+Save the data in a folder of your choice, I name it `data/helcom`.
 
 ```{r, data1-shape}
 baltic_drain <- st_read("./data/helcom/_ags_DrainageBasin_1/DrainageBasin_1.shp")
@@ -516,7 +628,7 @@ plot(st_geometry(baltic_bathy_50),
 
 ## Using `ggplot2` and `sf`
 
-We can use `ggplot2` to plot the `sf` data. Since these data are all data frames (sf features), we can use the `geom_sf()` function.
+We can also use `ggplot2` to plot the `sf` data. Since these data are all data frames (`sf` features), we can use the `geom_sf()` function.
 
 ```{r, plot5-shape}
 ggplot() + 
@@ -528,23 +640,42 @@ ggplot() +
 1.  Plot the `baltic_drain` vector data using either `geom_sf()` or `tidyterra::geom_spatvector()`.
 2.  Colour the drainage basins in different colours.
 
+**Solution of TASK 4 (unfold):**
+
+```{r, plot6-shape}
+#| code-fold: true
+ggplot() + 
+  geom_sf(data = baltic_drain,
+          fill = "orange", alpha = 0.7, color="red", lwd=0.4,
+          show.legend = FALSE) +
+  labs(x = "Longitude",
+       y = "Latitude",
+       title = "Baltic Sea Drainage Basin") +
+  theme_minimal()
+```
+
 ### Adding scale bars and a north arrow
 
-We can use the package `ggspatial`, which provides an easy function for creating scale bars / north arrows:
+We can use the package `ggspatial`, which provides an easy function for creating scale bars / north arrows.
 
 ```{r, plot7-shape}
 ggplot() + 
   geom_sf(data = baltic_drain,
           aes(fill = DESCRIPT),
-          alpha = 0.7, color="grey30", lwd=0.4,
+          alpha = 0.7, 
+          color="grey30", 
+          lwd=0.4,
           show.legend = FALSE) +
   scale_fill_viridis_d() +
   labs(x = "Longitude",
        y = "Latitude",
        title = "Baltic Sea Drainage Basin") +
-  annotation_scale(location = "bl", width_hint = 0.4) +
-  annotation_north_arrow(location = "tl", which_north = "true", 
-        pad_x = unit(0.0, "in"), pad_y = unit(0.2, "in"),
+  annotation_scale(location = "bl", 
+                   width_hint = 0.4) +
+  annotation_north_arrow(location = "tl", 
+                         which_north = "true", 
+        pad_x = unit(0.0, "in"), 
+        pad_y = unit(0.2, "in"),
         style = north_arrow_fancy_orienteering) +
   theme_minimal()
 ```
@@ -553,7 +684,7 @@ ggplot() +
 
 We add the some cities to the map. We manually create a new dataframe `cities` and then add those data to the map.
 
-We need to convert the cities data frame to an sf object. **EPSG:4326** corresponds to the WGS 84 geographic coordinate system, which is based on latitude and longitude coordinates and widely used for mapping.
+We need to convert the cities data frame to a spatial `sf` object. **EPSG:4326** corresponds to the WGS 84 geographic coordinate system, which is based on latitude and longitude coordinates and widely used for mapping.
 
 ```{r, data1-points}
 cities <- data.frame(city_name=c("Rostock", "Kopenhagen", "Stockholm", "Helsinki"))
@@ -568,7 +699,10 @@ cities_sf <- st_as_sf(cities, coords = c("lon", "lat"), crs = 4326)
 ```{r, plot8-shape}
 ggplot() + 
   geom_sf(data = baltic_drain,
-          fill = "orange", alpha = 0.7, color="red", lwd=0.4,
+          fill = "orange", 
+          alpha = 0.7, 
+          color="red", 
+          lwd=0.4,
           show.legend = FALSE) +
   labs(x = "Longitude",
        y = "Latitude",
@@ -577,11 +711,17 @@ ggplot() +
                    width_hint = 0.4) +
   annotation_north_arrow(location = "tl", 
                          which_north = "true",
-                         pad_x = unit(0.0, "in"), pad_y = unit(0.2, "in"),
+                         pad_x = unit(0.0, "in"),
+                         pad_y = unit(0.2, "in"),
                          style = north_arrow_fancy_orienteering) +
    # Add cities as points with labels
-  geom_sf(data = cities_sf, aes(geometry = geometry), color = "red", size = 3) +
-  geom_sf_text(data = cities_sf, aes(label = city_name), nudge_y = 0.3, size = 3) +
+  geom_sf(data = cities_sf, 
+          aes(geometry = geometry), 
+          color = "red", 
+          size = 3) +
+  geom_sf_text(data = cities_sf, 
+               aes(label = city_name), 
+               nudge_y = 0.3, size = 3) +
   theme_minimal()
 ```
 
@@ -608,17 +748,26 @@ The `available_tags()` function lists out the tags associated with each feature.
 available_tags("amenity")
 ```
 
+## Api key
+
+Using the Google map service, you need to get an API key.
+
 ```{r, data4-osm, eval = FALSE}
 api_secret <- "xyz"
 register_google(key = api_secret)
 ```
 
+## Retreive the map data
+
+You define the area of interest by defining the boundary box (bb) using the function `getbb()`, here it is Rostock.
+
 ```{r, data5-osm, eval = FALSE}
 # Using Google Api
 rostock.sat <- get_map(getbb("Rostock"), 
-                   maptype='satellite', 
-                   source="google", api_key=api_secret, 
-                   zoom=12)
+                       maptype = 'satellite', 
+                       source  = "google", 
+                       api_key = api_secret, 
+                       zoom    = 12)
 
 #map <- get_openstreetmap( getbb('Rostock'), source="osm")
 # Error in get_openstreetmap(getbb("Rostock"), source = "osm") : 
@@ -627,12 +776,13 @@ rostock.sat <- get_map(getbb("Rostock"),
 
 ```{r, data6-osm, eval = FALSE}
 rostock.road <- get_map(getbb("Rostock"), 
-               maptype='roadmap', 
-               source="google", api_key=api_secret, 
-               zoom=12)
+                        maptype = 'roadmap', 
+                        source  = "google", 
+                        api_key = api_secret, 
+                        zoom    = 12)
 ```
 
-Look at the base map:
+Plot the base map using the function `ggmap()` from the `ggmap` R package.
 
 ```{r, plot-osm, eval = FALSE}
 ggmap(rostock.sat)
@@ -721,9 +871,14 @@ region.lab.data <- baltic.countries.maps %>%
 ```
 
 ```{r, plot3-maps}
-ggplot(baltic.countries.maps, aes(x = long, y = lat)) +
-  geom_polygon(aes( group = group, fill = region))+
-  geom_text(aes(label = region), data = region.lab.data,  size = 3, hjust = 0.5)+
+ggplot(baltic.countries.maps,
+       aes(x = long, y = lat)) +
+  geom_polygon(aes( group = group, 
+                    fill = region))+
+  geom_text(aes(label = region), 
+            data = region.lab.data,  
+            size = 3, 
+            hjust = 0.5)+
   scale_fill_viridis(discrete = TRUE)+
   theme_void()+
   theme(legend.position = "none")
@@ -736,8 +891,7 @@ cities <- data.frame(
   long = c(12.1400211, 18.0710935),
   lat = c(54.0886707, 59.3251172),
   names = c("Rostock", "Stockholm"),
-  stringsAsFactors = FALSE
-  )  
+  stringsAsFactors = FALSE)  
 ```
 
 ```{r, plot4-maps}
@@ -749,14 +903,19 @@ ggplot(baltic.countries.maps,
   theme_void()+
   theme(legend.position = "none") +
   coord_fixed(1.3) +
-  geom_point(data = cities, aes(x = long, y = lat), color = "black", size = 5)
+  geom_point(data = cities, 
+             aes(x = long, y = lat), 
+             color = "black", 
+             size = 5)
 ```
 
 ### Add some facts about the countries
 
 You could also plot some information about those countries. Here we find some data for each country:
 
-https://ec.europa.eu/eurostat/databrowser/view/tps00001\_\_custom_13107327/settings_1/table?lang=en
+https://ec.europa.eu/eurostat/databrowser/view/tps00001\_\_custom_13107327/settings_1/table?lang=en.
+
+Save the data in a folder of your choice, I name it `data/eurostat`.
 
 ```{r, data5-maps}
 population <- read_xlsx("./data/eurostat/tps00001_page_spreadsheet.xlsx",
@@ -781,7 +940,8 @@ ggplot(baltic.countries.pop,
   geom_polygon(aes(group = group, 
                    fill = value/1000000))+
   geom_polygon(aes(group = group),
-               color = "black", fill = NA) +
+               color = "black", 
+               fill = NA) +
   scale_fill_viridis(discrete = FALSE)+
   labs(fill = "Mio. people") +
   theme_void()+
